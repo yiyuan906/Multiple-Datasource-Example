@@ -24,7 +24,7 @@ class datasourceISSLog extends sourceSchema with java.io.Serializable {
     // .add(StructField("sc-win32-status",StringType,true)) //int
     .add(StructField("sc-bytes", StringType,true)) //int
     .add(StructField("cs-bytes", StringType,true)) //int*/
-    .add(StructField("Time-taken", IntegerType,true)) //int
+    .add(StructField("Time-taken", StringType,true)) //int
 
   def checkToNull(valueA:String):String = {
     if(valueA == "/" || valueA == "-")
@@ -40,7 +40,7 @@ class datasourceISSLog extends sourceSchema with java.io.Serializable {
       val Elem = line.split(" ")
       Row(Elem(0), Elem(1),Elem(2), Elem(4), Elem(6),
         // ,Elem(4),Elem(5),Elem(7),Elem(8),Elem(9),Elem(10),Elem(11), Elem(12),Elem(13),Elem(16),Elem(17),
-       Elem(18).toInt)
+       Elem(18))
     })
     splitQ
   }

@@ -1,12 +1,13 @@
 package com.yiyuan.customdsClasses
 import org.apache.spark.sql
 import org.apache.spark.sql.SparkSession
-import org.apache.spark.sql.types.{BooleanType, DoubleType, IntegerType, StringType, StructField, StructType}
+import org.apache.spark.sql.types.{BooleanType, DoubleType, IntegerType, StringType, StructField, StructType, TimestampType}
+import org.apache.spark.sql.functions.unix_timestamp
 
 class datasourceCusloader2 extends sourceSchema {
   override def schemaRetrieved: StructType = new StructType()
     .add(StructField("open_water_swimming",StringType,true))
-    .add(StructField("Timestamp",StringType,true))
+    .add(StructField("Timestamp",TimestampType,true))
     .add(StructField("Favorite",BooleanType,true))
     .add(StructField("Title",StringType,true))
     .add(StructField("Distance",IntegerType,true))
@@ -33,11 +34,20 @@ class datasourceCusloader2 extends sourceSchema {
       .map{x=>{
         val Elem = x.split(",")
         (
-          Elem(0).drop(1),Elem(1),Elem(2).toBoolean,Elem(3),Integer.parseInt(Elem(4)+Elem(5)),Integer.parseInt(Elem(6)),
+          Elem(0).drop(1),(Elem(1)),Elem(2).toBoolean,Elem(3),Integer.parseInt(Elem(4)+Elem(5)),Integer.parseInt(Elem(6)),
           Elem(7),Elem(8),Elem(9),Elem(10),Elem(11).toInt,Elem(12).toInt,Elem(13).toInt,Elem(14).toDouble,Elem(15),Elem(16)
           ,Elem(17).dropRight(1).toInt
         )
       }}.toDF(headers.split(","): _*)
-    df
+
+    val headersIte = headers.split(",").iterator
+    val tcdf = df.select(df.col(headersIte.next()),
+      unix_timestamp(df.col(headersIte.next()),"dd/MM/yyyy HH:mm").cast("timestamp").as("T2"),
+      df.col(headersIte.next()),df.col(headersIte.next()),df.col(headersIte.next()),df.col(headersIte.next()),
+      df.col(headersIte.next()),df.col(headersIte.next()),df.col(headersIte.next()),df.col(headersIte.next()),
+      df.col(headersIte.next()),df.col(headersIte.next()),df.col(headersIte.next()),df.col(headersIte.next()),
+      df.col(headersIte.next()),df.col(headersIte.next()),df.col(headersIte.next()))
+
+    tcdf
   }
 }
