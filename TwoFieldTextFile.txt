@@ -1,5 +1,5 @@
-1,One,3
-2,Two,2
-3,Three,1
-21,Twenty-One,50
-50,Fifty,21
+A,One,1
+B,Two,2
+C,Three,3
+D,Twenty-One,21
+E,Fifty,50

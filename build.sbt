@@ -1,3 +1,4 @@
+
 name := "Multiple Datasource Example"
 
 version := "0.1"
@@ -14,6 +15,14 @@ libraryDependencies += "org.apache.httpcomponents" % "httpclient" % "4.5.3"
 libraryDependencies += "joda-time" % "joda-time" % "2.9.9"
 libraryDependencies += "commons-io" % "commons-io" % "2.4"
 libraryDependencies += "org.apache.hadoop" % "hadoop-mapreduce-client-core" % "2.7.3"
+
+assemblyShadeRules in assembly := Seq(
+  ShadeRule.rename("com.google.protobuf.**" -> "shadeproto.@1").inAll
+)
+
+PB.targets in Compile := Seq(
+  scalapb.gen() -> (sourceManaged in Compile).value
+)
 
 dependencyOverrides ++= {
   Seq(

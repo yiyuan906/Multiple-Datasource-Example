@@ -26,20 +26,17 @@ object Test {
       .getOrCreate()
 
     //This example uses customdsProviderSecond as the custom datasource
-    //"metadata key" set is to serve as a placeholder for the metadata that is to be read from MinIO
-    //the key set cannot be overwritten, so only run one at a time as they are using the same key
+    //To run this example, it requires MinIO to have the files with their metadata.
+    //The key that can be set with MinIO does not allow a list of any sorts, so it cannot be used to run this example
+    //on the ide.
 
-    //swimming.csv example
-    //data is not aligned on some line from 41-50, show(40) would be the maximum for this data
-    /*Spark.conf.set("metadata key","com.yiyuan.workingClass.datasourceSwimRelation")
-    val cusLoad = Spark.read.format("ySource2").load("swimming.csv")
-    cusLoad.show(10)
-    cusLoad.printSchema()*/
+    //supports single file, all files (provided same schema), file of same extension
+    // and files containing certain string as well (logA_*.filetype).
 
-    //ISSLogfileedit.txt example
-    /*Spark.conf.set("metadata key", "com.yiyuan.workingClass.datasourceISSRelation")
-    val cusLoad = Spark.read.format("ySource2").load("ISSLogfileedit.txt")
-    cusLoad.show(10)
-    cusLoad.printSchema()*/
+    val cusLoad = Spark.read.format("ySource2").load(
+      "s3a://customdatasources/logsampledata/*"
+    )
+    cusLoad.show(50)
+    cusLoad.printSchema()
   }
 }
