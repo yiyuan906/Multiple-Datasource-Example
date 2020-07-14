@@ -1,9 +1,5 @@
-import com.yiyuan.function.cusLoader
 import org.apache.spark.SparkConf
 import org.apache.spark.sql.SparkSession
-import org.apache.spark.sql.types.{IntegerType, StringType, StructField, StructType}
-import org.apache.spark.sql.functions.unix_timestamp
-import java.text.SimpleDateFormat
 
 object Test {
   def main(args: Array[String]): Unit = {
@@ -33,10 +29,21 @@ object Test {
     //supports single file, all files (provided same schema), file of same extension
     // and files containing certain string as well (logA_*.filetype).
 
-    val cusLoad = Spark.read.format("ySource2").load(
+    /*val cusLoad1 = Spark.read.format("ySource2").load(
       "s3a://customdatasources/logsampledata/*"
     )
-    cusLoad.show(50)
-    cusLoad.printSchema()
+    cusLoad1.show()*/*/
+
+    //datasourceBaseThree
+    val cusLoad2 = Spark.read.format("ySource2")
+      .option("bucket","customdatasources")
+      .option("endpoint",endpoint)
+      .option("accesskey",access_key)
+      .option("secretkey",secret_key)
+      .load(
+      "logsampledata/logA1.txt,logsampledata/logB2.csv,logsampledata/logA2.txt,logsampledata/logB1.csv"
+    )
+    cusLoad2.show()
+
   }
 }

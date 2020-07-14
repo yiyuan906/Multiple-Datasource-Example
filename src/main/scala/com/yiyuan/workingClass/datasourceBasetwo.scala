@@ -1,20 +1,18 @@
 package com.yiyuan.workingClass
 
-import java.io.Serializable
 import java.sql.Date
 
 import io.minio.MinioClient
 import org.apache.hadoop.fs.Path
-import org.apache.spark.SparkContext
 import org.apache.spark.rdd.RDD
+import org.apache.spark.sql.{DataFrame, Row, SQLContext}
 import org.apache.spark.sql.sources.{BaseRelation, PrunedScan}
 import org.apache.spark.sql.types.{DateType, IntegerType, StringType, StructField, StructType}
-import org.apache.spark.sql.{DataFrame, Row, SQLContext}
 
 import scala.collection.mutable.ArrayBuffer
 import scala.util.{Failure, Success, Try}
 
-class datasourceBase(relationContext:SQLContext, relationPath:String) {
+class datasourceBasetwo(relationContext:SQLContext, relationPath:String) {
   def getMetadata(relationPath: String):String = {
     val minioObj = new MinioClient(
       relationContext.sparkContext.getConf.get("spark.hadoop.fs.s3a.endpoint"),
@@ -77,24 +75,22 @@ class datasourceBase(relationContext:SQLContext, relationPath:String) {
     }
   }
 
-  def extenFilter(path:String):Boolean = {        //
+  def extensionFilter(path:String):Boolean = {
     if(relationPath.split("/").last.split("\\.").length>1)
       path.split("/").last.split("\\.")(1) == relationPath.split("/").last.split("\\.")(1)
-    else //assumes * is given
+    else                                          //assumes * is given
       true
   }
 
   def listToIterator(path:Path):Iterator[String] = {
     val fs = path.getFileSystem(relationContext.sparkContext.hadoopConfiguration)
-      fs.listStatus(path).map{x=>
-        x.getPath.toString
-      }.filter(
-          fileFilter(_)
-       )
-       .filter(
-        extenFilter(_)
-       )
-       .iterator
+    fs.listStatus(path).map{file=>
+      file.getPath.toString
+    }.filter(
+      fileFilter(_)
+    ).filter(
+        extensionFilter(_)
+      ).iterator
   }
 
   private val StructEmptyFrame = new StructType()
@@ -106,11 +102,11 @@ class datasourceBase(relationContext:SQLContext, relationPath:String) {
     .add(StructField("Description",StringType))
 
   def relationReturn():BaseRelation = {
-    val fsPath = new Path(dirCheck(relationPath))    //gives directory
+    val fsPath = new Path(dirCheck(relationPath))          //gives directory
 
-    val flIte = listToIterator(fsPath)//fileList.iterator
+    val fileListIterator = listToIterator(fsPath)                    //fileList.iterator
 
-    var Abuffer = new ArrayBuffer[DataFrame]
+    var rddArray = new ArrayBuffer[RDD[Row]]
 
     new BaseRelation with PrunedScan {
       override def sqlContext: SQLContext = relationContext
@@ -124,44 +120,40 @@ class datasourceBase(relationContext:SQLContext, relationPath:String) {
         .add(StructField("Description",StringType))
 
       override def buildScan(requiredColumns: Array[String]): RDD[Row] = {
-        while(flIte.hasNext){
-          val file = flIte.next()
+        while(fileListIterator.hasNext) {
+          val file = fileListIterator.next()
           println(file)
-          val metadata = getMetadata(file)
+          val classpathMetadata = getMetadata(file)
 
-          Try(Class.forName(metadata)) match
+          Try(Class.forName(classpathMetadata)) match
           {
             case Success(classInstance) =>
               val method = classInstance.getDeclaredMethod("dfReturn", sqlContext.getClass, new String().getClass)
-              Abuffer += method.invoke(classInstance.newInstance(), relationContext, file).asInstanceOf[DataFrame]
+              rddArray += method.invoke(classInstance.newInstance(), relationContext, file).asInstanceOf[RDD[Row]]
             case Failure(x) =>
-              throw new Exception(s"Class $metadata cannot be found")
+              throw new Exception(s"Class $classpathMetadata cannot be found")
           }
         }
 
-        val unionDF = Abuffer.toList.fold(relationContext.createDataFrame(    //joining of data (requires same schema)
-          relationContext.sparkContext.emptyRDD[Row], StructEmptyFrame
-        ))((x,y)=>x.union(y))
-
         import relationContext.implicits._
 
-        val mapped = unionDF.rdd.map(_.mkString(","))                //remapping process required for "requiredColumns"
-          .map{x=>
-            println(x)
-            val split = x.split(",")
-            val values = requiredColumns.map{
-              case "Date" => Date.valueOf(split(0))
-              case "Time" => split(1)
-              case "Action" => split(2)
-              case "Role" => split(3)
-              case "ActionID" => split(4).toInt
-              case "Description" => x.drop((split(0)+split(1)+split(2)+split(3)+split(4)).length+5).dropRight(1)
+        val combinedRDD = rddArray.toList.fold( //joining of data (requires same schema)
+          relationContext.createDataFrame(relationContext.sparkContext.emptyRDD[Row], StructEmptyFrame).rdd
+        )((first,second)=>first.union(second))
+
+        combinedRDD.map{ row=> {
+          val values = requiredColumns.map {
+            case "Date" => Date.valueOf(row.getString(0))
+            case "Time" => row.getString(1)
+            case "Action" => row.getString(2)
+            case "Role" => row.getString(3)
+            case "ActionID" => row.getInt(4)
+            case "Description" => row.getString(5)
             }
-            Row.fromSeq(values)
+          Row.fromSeq(values)
           }
-        mapped
+        }
       }
     }
   }
 }
-
