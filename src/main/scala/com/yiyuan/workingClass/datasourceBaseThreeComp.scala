@@ -13,26 +13,25 @@ import scala.collection.mutable.ArrayBuffer
 import scala.util.{Failure, Success, Try}
 
 class datasourceBaseThreeComp(compContext:SQLContext, columns: Array[String], compPath:String,
-                              bucket:String,endpoint:String,accesskey:String,secretkey:String)
+                              readMode:String,endpoint:String,accesskey:String,secretkey:String)
   extends RDD[Row](compContext.sparkContext, Nil) {
-  def getStringStream(streamPath: String):String = {
-    val minioObj = new MinioClient(endpoint,accesskey,secretkey)
 
-    if (!minioObj.bucketExists(bucket))
+  val bucket = compPath.split("/")(0)
+
+  def getStringStream(streamPath: String, minio:MinioClient):String = {
+    if (!minio.bucketExists(bucket))
       throw new Exception("Bucket does not exist")
 
     val writer = new StringWriter()
-    IOUtils.copy(minioObj.getObject(bucket, streamPath),writer)
+    IOUtils.copy(minio.getObject(bucket, streamPath),writer)
     writer.toString
   }
 
-  def getMetadata(streamPath: String):String = {
-    val minioObj = new MinioClient(endpoint,accesskey,secretkey)
-
-    if (!minioObj.bucketExists(bucket))
+  def getMetadata(streamPath: String, minio:MinioClient):String = {
+    if (!minio.bucketExists(bucket))
       throw new Exception("Bucket does not exist")
 
-    Try(minioObj.statObject(bucket, streamPath).httpHeaders().get("X-Amz-Meta-User.datasourceclass")) match {
+    Try(minio.statObject(bucket, streamPath).httpHeaders().get("X-Amz-Meta-User.datasourceclass")) match {
       case Success(objData) =>
         if(objData == null)
           throw new Exception("Metadata for user.datasourceClass is empty")
@@ -41,10 +40,27 @@ class datasourceBaseThreeComp(compContext:SQLContext, columns: Array[String], co
     }
   }
 
+  def getObjList(streamPath:String, minio:MinioClient):Array[String] = {
+    if(readMode == "specific"){           //expects list to be given seperated by commas "bucket/dir/obj,bucket/dir/obj"
+      streamPath.split(",").map{path=>{
+          path.drop(bucket.size+1)
+        }
+      }
+    }
+    else {                                //reads all specified
+      val objite = minio.listObjects(bucket,streamPath.drop(bucket.size+1)).iterator()
+      val listBuffer = new ArrayBuffer[String]
+      while(objite.hasNext)
+        listBuffer += objite.next().get().objectName()
+      listBuffer.toArray[String]
+    }
+  }
+
   override def compute(split: Partition, context: TaskContext): Iterator[Row] = {
-    val listOfObj = compPath.split(",")
+    val minioObj = new MinioClient(endpoint,accesskey,secretkey)
+    val listOfObj = getObjList(compPath,minioObj)
     val streamsOfObj = listOfObj.map{ObjName=>
-      (getStringStream(ObjName),getMetadata(ObjName),ObjName)
+      (getStringStream(ObjName,minioObj),getMetadata(ObjName,minioObj),ObjName)
     }
 
     var metadataRef = new ArrayBuffer[String]

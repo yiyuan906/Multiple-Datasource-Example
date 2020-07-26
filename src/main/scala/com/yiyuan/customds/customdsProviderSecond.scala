@@ -4,17 +4,19 @@ import com.yiyuan.workingClass.{datasourceBase, datasourceBaseThree, datasourceB
 import org.apache.spark.sql.SQLContext
 import org.apache.spark.sql.sources.{BaseRelation, DataSourceRegister, RelationProvider}
 
+import scala.util.{Failure, Success, Try}
+
 class customdsProviderSecond extends DataSourceRegister with RelationProvider {
 
   override def shortName(): String = "ySource2"
 
   override def createRelation(sqlContextCR: SQLContext, parameters: Map[String, String]): BaseRelation = {
-    //val dsb = new datasourceBasetwo(sqlContextCR, parameters("path"))
-    //dsb.relationReturn()
-
     new datasourceBaseThree(sqlContextCR,
       parameters("path"),
-      parameters("bucket"),
+      Try(parameters("readMode")) match {
+        case Success(output) => output
+        case Failure(x) => ""
+      },
       parameters("endpoint"),
       parameters("accesskey"),
       parameters("secretkey")
